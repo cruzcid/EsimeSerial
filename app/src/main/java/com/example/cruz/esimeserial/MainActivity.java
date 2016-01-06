@@ -1,18 +1,27 @@
 package com.example.cruz.esimeserial;
 
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import java.util.Set;
 
 import app.akexorcist.bluetotohspp.library.BluetoothSPP;
 
 public class MainActivity extends AppCompatActivity {
     int REQUEST_ENABLE_BT; // esta en onActivityResult
-    ImageView onOfImage;
-
+    private BroadcastReceiver mReceiver;
+        ImageView onOfImage;
+    Button onOffBtn;
     BluetoothAdapter mBluetoothAdapter;
     BluetoothSPP bt ; // Bluetooth SSP Serial Port Profile Akexorcist
     /*
@@ -34,14 +43,61 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bt = new BluetoothSPP(this);
+        //bt = new BluetoothSPP(this);
+        onOffBtn = (Button) findViewById(R.id.botonOnOffId);
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        onOffBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                queryingPairedDevices();
+            }
+        });
         disponibilidadOfBluetooth();
+        bluethoothOn();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mBluetoothAdapter.startDiscovery();//Start asyncronous background discovery of other devices
+        //mBluetoothAdapter.cancelDiscovery();//Remember to cancel discoveery afetr conecting to a device
+        // Create a BroadcastReceiver for ACTION_FOUND
+            mReceiver = new BroadcastReceiver() {
+            public void onReceive(Context context, Intent intent) {
+                String action = intent.getAction();
+                // When discovery finds a device
+                if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                    // Get the BluetoothDevice object from the Intent
+                    BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    // Add the name and address to an array adapter to show in a ListView
+                    //mArrayAdapter.add(device.getName() + "\n" + device.getAddress());
+                }
+            }
+        };
+        // Register the BroadcastReceiver
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+        registerReceiver(mReceiver, filter); // Don't forget to unregister during onDestroy
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        //Delete register option
+        unregisterReceiver(mReceiver);
     }
 
     public void disponibilidadOfBluetooth(){
+
         //Check if bluetooth is available
-        if(!bt.isBluetoothAvailable()) {
-            // any command for bluetooth is not available
+        if (mBluetoothAdapter == null) {
+            // Device does not support Bluetooth
             Toast.makeText(getApplicationContext(), "Bluethoot no disponible",
                     Toast.LENGTH_LONG).show();
 
@@ -55,17 +111,32 @@ public class MainActivity extends AppCompatActivity {
                 finish();
             }
         }
+
     }
     private void bluethoothOn() {
-        Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-        startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        if (!mBluetoothAdapter.isEnabled()) {
+            mBluetoothAdapter.enable();
+            /*Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            */
+            Toast.makeText(MainActivity.this, "Tu Bluetooth se ha Activado", Toast.LENGTH_SHORT).show();
+        }
     }
 
-    private void doesSupportBluethooth() {
-        if (mBluetoothAdapter == null) {
-            // Device does not support Bluetoot
-            Toast.makeText(getApplicationContext(), "Dispositivo sin soporte de Bluethoot",
-                    Toast.LENGTH_LONG).show();
+    private void queryingPairedDevices() {
+        Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+        // If there are paired devices
+        String output;
+        output="";
+        if (pairedDevices.size() > 0) {
+            // Loop through paired devices
+
+            for (BluetoothDevice device : pairedDevices) {
+                // Add the name and address to an array adapter to show in a ListView
+                //mArrayAdapter.add(device.getName() + "\n" + device.getAddress());
+                output += device.getName() + "\n" + device.getAddress()+"\n";
+            }
+            onOffBtn.setText(output);
         }
     }
 
